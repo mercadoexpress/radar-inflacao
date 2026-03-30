@@ -90,7 +90,7 @@ export default function Produtos() {
               <SelectItem value="proteinas">Proteínas</SelectItem>
               <SelectItem value="hortifruti">Hortifrúti</SelectItem>
               <SelectItem value="graos_secos">Grãos e Secos</SelectItem>
-              <SelectItem value="outros_insumos">Grãos e Secos</SelectItem>
+              <SelectItem value="outros_insumos">Outros Insumos</SelectItem>
             </SelectContent>
           </Select>
           <Select value={stateFilter} onValueChange={setStateFilter}>
@@ -145,6 +145,7 @@ export default function Produtos() {
                   <div className="text-right">
                     <p className="text-2xl font-bold">R$ {avgPrice.toFixed(2)}</p>
                     <p className="text-xs text-muted-foreground">Média</p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">Fonte: CEASA RS / SC / PR</p>
                   </div>
                 </div>
               </CardHeader>

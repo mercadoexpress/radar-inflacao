@@ -280,7 +280,7 @@ export default function Home() {
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Produtos Monitorados</p>
                   <p className="text-3xl font-bold text-[#003770] mt-1">{summary?.totalProducts || 0}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Indicadores CEPEA + CEASAs Sul</p>
+                  <p className="text-xs text-muted-foreground mt-1">Indicadores CEASA RS / SC / PR</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#003770]/10"><Package className="h-5 w-5 text-[#003770]" /></div>
               </div>
@@ -342,7 +342,7 @@ export default function Home() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold">Top 10 Produtos com Maior Pressão Inflacionária</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Produtos com maior variação positiva nos últimos 30 dias (do mais inflacionado ao menor) — Fonte: CEPEA/CEASAs
+            Produtos com maior variação positiva nos últimos 30 dias (do mais inflacionado ao menor) — Fonte: CEASA RS / SC / PR
           </p>
         </CardHeader>
         <CardContent>
@@ -376,7 +376,7 @@ export default function Home() {
             <div>
               <CardTitle className="text-base font-semibold">Projeção e Expectativa de Mercado</CardTitle>
               <p className="text-xs text-muted-foreground mt-1">
-                Análise de tendência dos {summary?.totalProducts || 19} itens monitorados com base na evolução dos últimos 30d, 90d e 12 meses para projetar o comportamento futuro dos preços — Fontes: CEPEA e CEASAs do Sul (PR, SC, RS)
+                Análise de tendência dos {summary?.totalProducts || 19} itens monitorados com base na evolução dos últimos 30d, 90d e 12 meses para projetar o comportamento futuro dos preços — Fontes: CEASA RS / CEASA SC / CEASA PR
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Clique nos cabeçalhos das colunas para ordenar: A→Z (alfabético), maior→menor (preço) ou por expectativa de mercado

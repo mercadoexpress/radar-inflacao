@@ -103,7 +103,7 @@ export default function Historico() {
         <div className="flex items-center gap-3 flex-wrap">
           <Badge variant="outline" className="text-sm px-3 py-1">{selectedProductInfo.name}</Badge>
           <span className="text-sm text-muted-foreground">Unidade: <strong>{selectedProductInfo.unit}</strong></span>
-          <span className="text-sm text-muted-foreground">Fonte: {selectedProductInfo.category === "hortifruti" ? "CEASAs do Sul" : "CEPEA"}</span>
+          <span className="text-sm text-muted-foreground">Fonte: {selectedProductInfo.category === "hortifruti" ? "CEASA RS / SC / PR" : "CEASA RS / SC / PR"}</span>
         </div>
       )}
 

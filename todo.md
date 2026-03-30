@@ -24,3 +24,14 @@
 - [x] Corrigir erros de imports e compatibilidade (tipos TypeScript no scraper, collectedAt)
 - [x] Executar testes vitest (10 testes passando)
 - [x] Salvar checkpoint e publicar
+
+## Correção de Preços — Fontes Reais CEASAs
+
+- [x] Coletar preços reais CEASA RS (ceasa.rs.gov.br)
+- [x] Coletar preços reais CEASA SC (ceasa.sc.gov.br)
+- [x] Coletar preços reais CEASA PR (celepar7.pr.gov.br)
+- [x] Coletar preços HF Brasil como validação
+- [x] Reescrever scraper com lógica: média CEASAs, padronização unidades, descarte outliers
+- [x] Atualizar update-seed.mjs com preços reais dos 26 produtos
+- [x] Repopular banco com dados reais
+- [x] Publicar versão atualizada
