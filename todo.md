@@ -46,3 +46,9 @@
 - [ ] Ajuste 6: Validar consistência de dados entre telas
 - [ ] Commit e push no GitHub
 - [ ] Novo deploy no Manus
+
+## Correção de Erros HMR/Vite
+
+- [x] Corrigir erro de sintaxe/import em Previsoes.tsx (trpc duplicado)
+- [x] Corrigir erros em Ranking.tsx, Produtos.tsx, Indices.tsx, Home.tsx, Historico.tsx
+- [x] Corrigir erro em index.css
