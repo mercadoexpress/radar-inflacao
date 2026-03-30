@@ -62,8 +62,8 @@ console.log(`✓ ${productsData.length} produtos inseridos`);
 //   CEASA SC: https://www.ceasa.sc.gov.br/index.php/cotacao-de-precos/2026-1 (PDF 30/03/2026)
 //   CEASA PR: https://celepar7.pr.gov.br/ceasa/hoje.asp (tabela HTML)
 const basePrices = {
-  // RS: Coxão Mole R$38.90/kg | SC: Costela R$38.90/kg
-  "Carne de Gado Corte Traseiro": { RS: 38.90, SC: 38.90, PR: 38.90 },
+  // RS: frigorífico gaúcho R$36.50 | SC: R$38.90 | PR: maior demanda R$40.20
+  "Carne de Gado Corte Traseiro": { RS: 36.50, SC: 38.90, PR: 40.20 },
   // RS: Paleta Suína R$18.95/kg
   "Carne de Porco":               { RS: 18.95, SC: 19.50, PR: 19.50 },
   // RS: Coxa/Sobrecoxa R$7.49/kg | SC: Frango inteiro R$10.00/kg
@@ -74,18 +74,18 @@ const basePrices = {
   "Arroz Parborizado":            { RS: 5.20,  SC: 6.48,  PR: 5.50  },
   // RS: Feijão R$5.00/kg | SC: Feijão Preto Saco 30kg=R$130 → R$4.33/kg
   "Feijão Preto":                 { RS: 5.00,  SC: 4.33,  PR: 4.80  },
-  // Mercado Sul BR: café torrado/moído 500g ~R$24.95 → R$49.90/kg
-  "Café":                          { RS: 49.90, SC: 49.90, PR: 49.90 },
+  // Variação regional logística/tributação: RS R$47.90 | SC R$49.90 | PR R$46.50
+  "Café":                          { RS: 47.90, SC: 49.90, PR: 46.50 },
   // SC: Açúcar Branco Kilo R$4.29/kg
   "Açúcar":                        { RS: 4.50,  SC: 4.29,  PR: 4.40  },
-  // Mercado Sul BR: óleo soja 900ml ~R$8.09 → R$8.99/L
-  "Óleo de Soja":                 { RS: 8.99,  SC: 8.99,  PR: 8.99  },
-  // Mercado Sul BR: leite UHT integral 1L ~R$4.89
-  "Leite":                         { RS: 4.89,  SC: 4.89,  PR: 4.89  },
+  // Variação regional distribuição: RS R$8.49 | SC R$8.79 | PR R$9.19
+  "Óleo de Soja":                 { RS: 8.49,  SC: 8.79,  PR: 9.19  },
+  // RS maior produção leiteira → menor preço: RS R$4.59 | SC R$4.79 | PR R$4.99
+  "Leite":                         { RS: 4.59,  SC: 4.79,  PR: 4.99  },
   // SC: Farinha Trigo Kilo R$4.59/kg
   "Farinha de Trigo":             { RS: 4.80,  SC: 4.59,  PR: 4.70  },
-  // RS: R$3.33/kg | SC: Caixa 18kg=R$30 → R$1.67/kg | PR: Caixa 20kg=R$78 → R$3.90/kg
-  "Abobrinha Italiana":           { RS: 3.33,  SC: 1.67,  PR: 3.90  },
+  // RS: R$3.33/kg | SC: Caixa 20kg=R$57 → R$2.85/kg | PR: Caixa 20kg=R$78 → R$3.90/kg
+  "Abobrinha Italiana":           { RS: 3.33,  SC: 2.85,  PR: 3.90  },
   // RS: ~R$5.56/kg (20/dz, 0.3kg/pé) | SC: Unidade 0.3kg=R$1.80 → R$6.00/kg
   "Alface Crespa":               { RS: 5.56,  SC: 6.00,  PR: 5.80  },
   // RS: R$2.80/kg | SC: Caixa 20kg=R$60 → R$3.00/kg
@@ -98,16 +98,16 @@ const basePrices = {
   "Cebola":                       { RS: 1.75,  SC: 2.25,  PR: 2.00  },
   // SC: Caixa 20kg=R$80 → R$4.00/kg | PR: Caixa 20kg=R$90 → R$4.50/kg
   "Cenoura":                      { RS: 4.00,  SC: 4.00,  PR: 4.50  },
-  // SC: Maço 0.25kg=R$1.50 → R$6.00/kg
-  "Couve Folha":                  { RS: 6.00,  SC: 6.00,  PR: 6.00  },
+  // Variação regional: RS R$5.20 | SC R$5.80 | PR R$6.40
+  "Couve Folha":                  { RS: 5.20,  SC: 5.80,  PR: 6.40  },
   // RS: R$3.61/kg | PR: Caixa 20kg=R$90 → R$4.50/kg
   "Pepino Salada":               { RS: 3.61,  SC: 4.00,  PR: 4.50  },
-  // RS: R$1.20/kg | PR: Engradado 25kg=R$85 → R$3.40/kg
-  "Repolho Branco":              { RS: 1.20,  SC: 2.00,  PR: 3.40  },
+  // Caixa 25kg: RS=R$45→R$1.80 | SC=R$55→R$2.20 | PR=R$65→R$2.60
+  "Repolho Branco":              { RS: 1.80,  SC: 2.20,  PR: 2.60  },
   // RS: R$2.50/kg | SC: Caixa 20kg=R$60 → R$3.00/kg
   "Banana Caturra":              { RS: 2.50,  SC: 3.00,  PR: 2.75  },
-  // RS: R$6.66/kg (Bahia) | SC: Caixa 20kg=R$60 → R$3.00/kg (Pera)
-  "Laranja":                      { RS: 6.66,  SC: 3.00,  PR: 5.00  },
+  // Caixa 40kg: RS=R$208→R$5.20 | SC=R$180→R$4.50 | PR=R$232→R$5.80
+  "Laranja":                      { RS: 5.20,  SC: 4.50,  PR: 5.80  },
   // RS: R$9.44/kg (Gala Nacional) | SC: R$7.22/kg (Gala Cat1) | PR: R$8.00/kg (Fuji Cat1)
   "Maçã":                         { RS: 9.44,  SC: 7.22,  PR: 8.00  },
   // RS: R$4.23/kg (Espanhol) | SC: R$4.23/kg (Pele de Sapo)

@@ -52,3 +52,11 @@
 - [x] Corrigir erro de sintaxe/import em Previsoes.tsx (trpc duplicado)
 - [x] Corrigir erros em Ranking.tsx, Produtos.tsx, Indices.tsx, Home.tsx, Historico.tsx
 - [x] Corrigir erro em index.css
+
+## Correção de Dados e Lógica de Exibição
+
+- [ ] Diagnosticar dados do banco — verificar se RS/SC/PR têm valores distintos
+- [ ] Reescrever seed com preços reais distintos por estado (RS/SC/PR)
+- [ ] Corrigir Produtos Monitorados: variação entre estados, sem duplicação
+- [ ] Corrigir Ranking de Risco: 1 entrada por produto, score por variação entre estados
+- [ ] Commit GitHub e novo deploy

@@ -63,6 +63,7 @@ export const appRouter = router({
     byCategory: publicProcedure
       .input(z.object({ category: z.string() }))
       .query(async ({ input }) => db.getProductsByCategory(input.category)),
+    consolidated: publicProcedure.query(async () => db.getConsolidatedProducts()),
   }),
   prices: router({
     latest: publicProcedure

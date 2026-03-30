@@ -4,67 +4,81 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, Minus, Search, X, Filter } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Search, X, AlertTriangle } from "lucide-react";
 import { useState, useMemo } from "react";
 
 const categoryLabels: Record<string, string> = {
-  proteinas: "Proteínas", hortifruti: "Hortifrúti", graos_secos: "Grãos e Secos",
-  outros_insumos: "Grãos e Secos", suprimentos: "Suprimentos",
+  proteinas: "Proteínas",
+  hortifruti: "Hortifrúti",
+  graos_secos: "Grãos e Secos",
+  outros_insumos: "Outros Insumos",
+  suprimentos: "Suprimentos",
 };
-const categoryColors: Record<string, string> = {
-  proteinas: "#EE7D00", hortifruti: "#22c55e", graos_secos: "#003770",
-  outros_insumos: "#003770", suprimentos: "#64748b",
-};
+
+function TrendIcon({ variation }: { variation: number }) {
+  if (variation > 1) return (
+    <Badge variant="outline" className="text-xs gap-1 bg-red-50 text-red-700 border-red-200">
+      <TrendingUp className="h-3 w-3" />Alta
+    </Badge>
+  );
+  if (variation < -1) return (
+    <Badge variant="outline" className="text-xs gap-1 bg-emerald-50 text-emerald-700 border-emerald-200">
+      <TrendingDown className="h-3 w-3" />Queda
+    </Badge>
+  );
+  return (
+    <Badge variant="outline" className="text-xs gap-1 bg-gray-50 text-gray-700 border-gray-200">
+      <Minus className="h-3 w-3" />Estável
+    </Badge>
+  );
+}
+
+function RiskBadge({ variation }: { variation: number }) {
+  if (variation > 15) return (
+    <Badge className="text-xs bg-red-100 text-red-800 border-red-300 gap-1">
+      <AlertTriangle className="h-3 w-3" />Alto ({variation.toFixed(1)}%)
+    </Badge>
+  );
+  if (variation > 7) return (
+    <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-300">
+      Médio ({variation.toFixed(1)}%)
+    </Badge>
+  );
+  return (
+    <Badge className="text-xs bg-emerald-100 text-emerald-800 border-emerald-300">
+      Baixo ({variation.toFixed(1)}%)
+    </Badge>
+  );
+}
 
 export default function Produtos() {
-  const [stateFilter, setStateFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
-  const filterState = stateFilter === "all" ? undefined : stateFilter;
-  const filterCategory = categoryFilter === "all" ? undefined : categoryFilter;
 
-  const { data: latestPrices, isLoading } = trpc.prices.latest.useQuery(
-    { state: filterState, category: filterCategory }
-  );
+  // Usar endpoint consolidado: 1 linha por produto com preços RS/SC/PR
+  const { data: consolidatedProducts, isLoading } = trpc.products.consolidated.useQuery();
 
-  const groupedProducts = useMemo(() => {
-    if (!latestPrices) return {};
-    const grouped: Record<string, any[]> = {};
-    (latestPrices as any[]).forEach((p: any) => {
-      const key = p.productName;
-      // Filtro por nome
-      if (searchQuery && !key.toLowerCase().includes(searchQuery.toLowerCase())) return;
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(p);
+  const filteredProducts = useMemo(() => {
+    if (!consolidatedProducts) return [];
+    return (consolidatedProducts as any[]).filter((p: any) => {
+      const matchesCategory = categoryFilter === "all" || p.category === categoryFilter;
+      const matchesSearch = !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
     });
-    return grouped;
-  }, [latestPrices, searchQuery]);
-
-  // Ordenar produtos por expectativa de alta (trend factor)
-  const sortedProducts = useMemo(() => {
-    return Object.entries(groupedProducts).sort((a, b) => {
-      const avgA = a[1].reduce((sum, p) => sum + Number(p.price), 0) / a[1].length;
-      const avgB = b[1].reduce((sum, p) => sum + Number(p.price), 0) / b[1].length;
-      return avgB - avgA; // Maior preço primeiro (expectativa de alta)
-    });
-  }, [groupedProducts]);
-
-  const productList = useMemo(() => {
-    return Object.keys(groupedProducts).sort();
-  }, [groupedProducts]);
+  }, [consolidatedProducts, categoryFilter, searchQuery]);
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho e Filtros */}
+      {/* Cabeçalho */}
       <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Produtos Monitorados</h1>
-          <p className="text-muted-foreground text-sm mt-1">Detalhamento de preços por produto, região e fonte de dados</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Preços por estado (RS, SC, PR) com variação entre regiões — Fonte: CEASA RS / SC / PR
+          </p>
         </div>
 
-        {/* Filtros Principais */}
+        {/* Filtros */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -84,141 +98,176 @@ export default function Produtos() {
             )}
           </div>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="all">Todas as Categorias</SelectItem>
               <SelectItem value="proteinas">Proteínas</SelectItem>
               <SelectItem value="hortifruti">Hortifrúti</SelectItem>
               <SelectItem value="graos_secos">Grãos e Secos</SelectItem>
               <SelectItem value="outros_insumos">Outros Insumos</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={stateFilter} onValueChange={setStateFilter}>
-            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Estado" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="PR">Paraná</SelectItem>
-              <SelectItem value="SC">Santa Catarina</SelectItem>
-              <SelectItem value="RS">Rio Grande do Sul</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </div>
 
-
-
-      {/* Detalhamento de Preços */}
+      {/* Lista de Produtos */}
       {isLoading ? (
-        <Skeleton className="h-[400px] w-full" />
-      ) : sortedProducts.length === 0 ? (
+        <div className="space-y-4">
+          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-[200px] w-full" />)}
+        </div>
+      ) : filteredProducts.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             Nenhum produto encontrado com os filtros selecionados.
           </CardContent>
         </Card>
       ) : (
-        sortedProducts.map(([productName, prices]) => {
-          // Se há um produto selecionado, mostrar apenas esse
-          if (selectedProduct && productName !== selectedProduct) return null;
+        <div className="space-y-4">
+          {filteredProducts.map((product: any) => {
+            const priceRS = Number(product.priceRS || 0);
+            const priceSC = Number(product.priceSC || 0);
+            const pricePR = Number(product.pricePR || 0);
+            const avgPrice = Number(product.avgPrice || 0);
+            const stateVariation = Number(product.stateVariation || 0);
+            const variation30d = Number(product.variation30d || 0);
+            const variation12m = Number(product.variation12m || 0);
 
-          const avgPrice = prices.reduce((sum: number, p: any) => sum + Number(p.price), 0) / prices.length;
-          const pricesByState = prices.reduce((acc: Record<string, number>, p: any) => {
-            acc[p.state] = Number(p.price);
-            return acc;
-          }, {});
-          // Fonte exata: estados presentes nos dados
-          const statesUsed = prices.map((p: any) => p.state as string).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i).sort();
-          const stateLabels: Record<string, string> = { RS: 'CEASA RS', SC: 'CEASA SC', PR: 'CEASA PR' };
-          const sourceLabel = statesUsed.length === 1
-            ? stateLabels[statesUsed[0]]
-            : statesUsed.length === 2
-              ? `Média ${statesUsed.map((s: string) => stateLabels[s]).join(' + ')}`
-              : 'Média CEASA RS + SC + PR';
-          // Dados de variação e tendência por estado
-          const stateDataMap = prices.reduce((acc: Record<string, any>, p: any) => {
-            acc[p.state] = p;
-            return acc;
-          }, {});
+            // Fonte exata baseada nos estados disponíveis
+            const availableStates = [
+              priceRS > 0 ? 'RS' : null,
+              priceSC > 0 ? 'SC' : null,
+              pricePR > 0 ? 'PR' : null,
+            ].filter(Boolean) as string[];
+            const sourceLabel = availableStates.length === 1
+              ? `CEASA ${availableStates[0]}`
+              : availableStates.length === 2
+                ? `Média CEASA ${availableStates.join(' + ')}`
+                : 'Média CEASA RS + SC + PR';
 
-          return (
-            <Card key={productName}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-base font-semibold">{productName}</CardTitle>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className="text-xs">
-                        {categoryLabels[prices[0]?.category] || "—"}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {prices[0]?.unit || "—"}
-                      </Badge>
+            // Estado mais barato e mais caro
+            const statePrices = [
+              { state: 'RS', price: priceRS },
+              { state: 'SC', price: priceSC },
+              { state: 'PR', price: pricePR },
+            ].filter(s => s.price > 0);
+            const cheapest = statePrices.reduce((a, b) => a.price < b.price ? a : b, statePrices[0]);
+            const mostExpensive = statePrices.reduce((a, b) => a.price > b.price ? a : b, statePrices[0]);
+
+            return (
+              <Card key={product.id} className="overflow-hidden">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base font-semibold">{product.name}</CardTitle>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <Badge variant="outline" className="text-xs">
+                          {categoryLabels[product.category] || product.category}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {product.unit}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground/70">
+                          Variação entre estados:
+                        </span>
+                        <RiskBadge variation={stateVariation} />
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-2xl font-bold">R$ {avgPrice.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">Média RS/SC/PR</p>
+                      <p className="text-[10px] text-muted-foreground/70 mt-0.5">Fonte: {sourceLabel}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold">R$ {avgPrice.toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground">Média</p>
-                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">Fonte: {sourceLabel}</p>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {/* Tabela de preços por estado */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Estado</th>
+                          <th className="text-right py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Preço Atual</th>
+                          <th className="text-right py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Dif. da Média</th>
+                          <th className="text-right py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Var. 12m</th>
+                          <th className="text-center py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Tendência</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { state: 'RS', price: priceRS, source: product.sourceRS || 'CEASA RS' },
+                          { state: 'SC', price: priceSC, source: product.sourceSC || 'CEASA SC' },
+                          { state: 'PR', price: pricePR, source: product.sourcePR || 'CEASA PR' },
+                        ].filter(row => row.price > 0).map((row) => {
+                          const diffFromAvg = avgPrice > 0 ? ((row.price - avgPrice) / avgPrice) * 100 : 0;
+                          const isCheapest = cheapest?.state === row.state && statePrices.length > 1;
+                          const isMostExpensive = mostExpensive?.state === row.state && statePrices.length > 1;
+                          return (
+                            <tr key={row.state} className={`border-b border-border/50 hover:bg-muted/30 ${isCheapest ? 'bg-emerald-50/30' : isMostExpensive ? 'bg-red-50/30' : ''}`}>
+                              <td className="py-2.5 px-2">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-medium">{row.state}</span>
+                                  {isCheapest && <Badge className="text-[10px] py-0 px-1 bg-emerald-100 text-emerald-700 border-emerald-200">Mais barato</Badge>}
+                                  {isMostExpensive && <Badge className="text-[10px] py-0 px-1 bg-red-100 text-red-700 border-red-200">Mais caro</Badge>}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground/70">{row.source}</div>
+                              </td>
+                              <td className="py-2.5 px-2 text-right font-mono font-semibold">
+                                R$ {row.price.toFixed(2)}
+                              </td>
+                              <td className="py-2.5 px-2 text-right font-mono text-xs">
+                                <span className={diffFromAvg > 0 ? 'text-red-600' : diffFromAvg < 0 ? 'text-emerald-600' : 'text-gray-500'}>
+                                  {diffFromAvg > 0 ? '+' : ''}{diffFromAvg.toFixed(1)}%
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-2 text-right font-mono text-xs">
+                                <span className={variation12m > 0 ? 'text-red-600' : variation12m < 0 ? 'text-emerald-600' : 'text-gray-500'}>
+                                  {variation12m > 0 ? '+' : ''}{variation12m.toFixed(1)}%
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-2 text-center">
+                                <TrendIcon variation={variation30d} />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      {/* Linha de resumo */}
+                      <tfoot>
+                        <tr className="bg-muted/20 border-t-2 border-border">
+                          <td className="py-2 px-2 font-semibold text-xs text-muted-foreground">MÉDIA</td>
+                          <td className="py-2 px-2 text-right font-mono font-bold">R$ {avgPrice.toFixed(2)}</td>
+                          <td className="py-2 px-2 text-right text-xs text-muted-foreground">—</td>
+                          <td className="py-2 px-2 text-right font-mono text-xs">
+                            <span className={variation12m > 0 ? 'text-red-600' : variation12m < 0 ? 'text-emerald-600' : 'text-gray-500'}>
+                              {variation12m > 0 ? '+' : ''}{variation12m.toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className="py-2 px-2 text-center">
+                            <TrendIcon variation={variation30d} />
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Estado</th>
-                        <th className="text-right py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Preço Atual</th>
-                        <th className="text-right py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Var. 12m</th>
-                        <th className="text-center py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Tendência</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {["PR", "SC", "RS"].map((state) => {
-                        const statePrice = pricesByState[state];
-                        const stateData = stateDataMap[state];
-                        if (!statePrice) return null;
-                        const var12m = Number(stateData?.variation12m || 0);
-                        const trend = stateData?.trend || (var12m > 1 ? 'alta' : var12m < -1 ? 'queda' : 'estavel');
-                        return (
-                          <tr key={state} className="border-b border-border/50 hover:bg-muted/30">
-                            <td className="py-2.5 px-2 font-medium">
-                              <div>{state}</div>
-                              <div className="text-[10px] text-muted-foreground/70">{stateLabels[state]}</div>
-                            </td>
-                            <td className="py-2.5 px-2 text-right font-mono font-medium">
-                              R$ {statePrice.toFixed(2)}
-                            </td>
-                            <td className="py-2.5 px-2 text-right font-mono">
-                              <span className={var12m > 0 ? 'text-red-600' : var12m < 0 ? 'text-emerald-600' : 'text-gray-500'}>
-                                {var12m > 0 ? '+' : ''}{var12m.toFixed(1)}%
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-2 text-center">
-                              {trend === 'alta' ? (
-                                <Badge variant="outline" className="text-xs gap-1 bg-red-50 text-red-700 border-red-200">
-                                  <TrendingUp className="h-3 w-3" />Alta
-                                </Badge>
-                              ) : trend === 'queda' ? (
-                                <Badge variant="outline" className="text-xs gap-1 bg-emerald-50 text-emerald-700 border-emerald-200">
-                                  <TrendingDown className="h-3 w-3" />Queda
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-xs gap-1 bg-gray-50 text-gray-700 border-gray-200">
-                                  <Minus className="h-3 w-3" />Estável
-                                </Badge>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })
+
+                  {/* Resumo de variação entre estados */}
+                  {stateVariation > 0 && statePrices.length > 1 && (
+                    <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>
+                        Diferença entre estados: <strong className={stateVariation > 15 ? 'text-red-600' : stateVariation > 7 ? 'text-amber-600' : 'text-emerald-600'}>
+                          {stateVariation.toFixed(1)}%
+                        </strong>
+                        {cheapest && mostExpensive && cheapest.state !== mostExpensive.state && (
+                          <> — Mais barato em <strong>{cheapest.state}</strong> (R$ {cheapest.price.toFixed(2)}), mais caro em <strong>{mostExpensive.state}</strong> (R$ {mostExpensive.price.toFixed(2)})</>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
     </div>
   );

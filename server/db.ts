@@ -246,12 +246,171 @@ export async function getDashboardSummary(state?: string) {
   };
 }
 
-// ========== RISK RANKING ==========
+// ========== CONSOLIDATED PRODUCTS (1 linha por produto com preços RS/SC/PR) ==========
+export async function getConsolidatedProducts() {
+  const db = await getDb();
+  if (!db) return [];
+  // Buscar preços mais recentes por produto e estado
+  // Usa INNER JOIN com subquery de MAX para evitar subquery correlacionada (incompatível com TiDB)
+  try {
+    const result = await db.execute(sql`
+      SELECT 
+        p.id, p.name, p.category, p.unit,
+        MAX(CASE WHEN lp.state = 'RS' THEN lp.price END) as priceRS,
+        MAX(CASE WHEN lp.state = 'SC' THEN lp.price END) as priceSC,
+        MAX(CASE WHEN lp.state = 'PR' THEN lp.price END) as pricePR,
+        MAX(CASE WHEN lp.state = 'RS' THEN lp.source END) as sourceRS,
+        MAX(CASE WHEN lp.state = 'SC' THEN lp.source END) as sourceSC,
+        MAX(CASE WHEN lp.state = 'PR' THEN lp.source END) as sourcePR,
+        ROUND(AVG(lp.price), 2) as avgPrice,
+        MAX(lp.collectedAt) as lastUpdate,
+        CASE 
+          WHEN MIN(lp.price) > 0 
+          THEN ROUND(((MAX(lp.price) - MIN(lp.price)) / MIN(lp.price)) * 100, 2)
+          ELSE 0
+        END as stateVariation,
+        ROUND(AVG(
+          CASE 
+            WHEN avg30.avgPrice IS NOT NULL AND avg30.avgPrice > 0
+            THEN ((lp.price - avg30.avgPrice) / avg30.avgPrice) * 100
+            ELSE 0
+          END
+        ), 2) as variation30d,
+        ROUND(AVG(
+          CASE 
+            WHEN avg12m.avgPrice IS NOT NULL AND avg12m.avgPrice > 0
+            THEN ((lp.price - avg12m.avgPrice) / avg12m.avgPrice) * 100
+            ELSE 0
+          END
+        ), 2) as variation12m
+      FROM products p
+      JOIN (
+        SELECT ph.productId, ph.state, ph.price, ph.source, ph.collectedAt
+        FROM price_history ph
+        INNER JOIN (
+          SELECT productId, state, MAX(collectedAt) as maxDate
+          FROM price_history
+          GROUP BY productId, state
+        ) latest ON ph.productId = latest.productId AND ph.state = latest.state AND ph.collectedAt = latest.maxDate
+      ) lp ON lp.productId = p.id
+      LEFT JOIN (
+        SELECT productId, state, ROUND(AVG(price), 2) as avgPrice
+        FROM price_history WHERE collectedAt >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+        GROUP BY productId, state
+      ) avg30 ON avg30.productId = p.id AND avg30.state = lp.state
+      LEFT JOIN (
+        SELECT productId, state, ROUND(AVG(price), 2) as avgPrice
+        FROM price_history WHERE collectedAt >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)
+        GROUP BY productId, state
+      ) avg12m ON avg12m.productId = p.id AND avg12m.state = lp.state
+      WHERE p.active = 1
+      GROUP BY p.id, p.name, p.category, p.unit
+      ORDER BY p.name ASC
+    `);
+    return (result as any)[0] || [];
+  } catch (error: any) {
+    console.error('[getConsolidatedProducts] MySQL error:', error?.message || error);
+    throw error;
+  }
+}
+
+// ========== RISK RANKING (1 entrada por produto, score consolidado) ==========
 export async function getRiskRanking(state?: string) {
   const db = await getDb();
   if (!db) return [];
-  const result = await db.execute(sql`${unifiedMetricsSql(state)} ORDER BY variation30d DESC`);
-  return (result as any)[0] || [];
+  
+  if (state) {
+    // Se filtrar por estado, retorna dados daquele estado
+    const result = await db.execute(sql`${unifiedMetricsSql(state)} ORDER BY variation30d DESC`);
+    return (result as any)[0] || [];
+  }
+
+  // Sem filtro de estado: retorna 1 entrada por produto com score consolidado
+  // Usa latest_prices CTE-style via subquery para evitar subquery correlacionada
+  try {
+    const result = await db.execute(sql`
+      SELECT 
+        p.id, p.name, p.category, p.unit,
+        ROUND(AVG(lp.price), 2) as currentPrice,
+        'RS/SC/PR' as state,
+        MAX(lp.collectedAt) as lastUpdate,
+        CONCAT('Média CEASA ', CONCAT_WS(' + ',
+          IF(MAX(CASE WHEN lp.state = 'PR' THEN 1 ELSE 0 END) = 1, 'PR', NULL),
+          IF(MAX(CASE WHEN lp.state = 'RS' THEN 1 ELSE 0 END) = 1, 'RS', NULL),
+          IF(MAX(CASE WHEN lp.state = 'SC' THEN 1 ELSE 0 END) = 1, 'SC', NULL)
+        )) as source,
+        CASE 
+          WHEN MIN(lp.price) > 0 
+          THEN ROUND(((MAX(lp.price) - MIN(lp.price)) / MIN(lp.price)) * 100, 2)
+          ELSE 0
+        END as stateVariation,
+        ROUND(AVG(
+          CASE 
+            WHEN avg30.avgPrice IS NOT NULL AND avg30.avgPrice > 0
+            THEN ((lp.price - avg30.avgPrice) / avg30.avgPrice) * 100
+            ELSE 0
+          END
+        ), 2) as variation30d,
+        ROUND(AVG(
+          CASE 
+            WHEN avg12m.avgPrice IS NOT NULL AND avg12m.avgPrice > 0
+            THEN ((lp.price - avg12m.avgPrice) / avg12m.avgPrice) * 100
+            ELSE 0
+          END
+        ), 2) as variation12m,
+        ROUND(
+          ABS(AVG(
+            CASE 
+              WHEN avg30.avgPrice IS NOT NULL AND avg30.avgPrice > 0
+              THEN ((lp.price - avg30.avgPrice) / avg30.avgPrice) * 100
+              ELSE 0
+            END
+          )) * 0.6 +
+          CASE 
+            WHEN MIN(lp.price) > 0 
+            THEN ((MAX(lp.price) - MIN(lp.price)) / MIN(lp.price)) * 100 * 0.4
+            ELSE 0
+          END
+        , 2) as riskScore,
+        CASE 
+          WHEN CASE WHEN MIN(lp.price) > 0 THEN ((MAX(lp.price) - MIN(lp.price)) / MIN(lp.price)) * 100 ELSE 0 END > 15
+          THEN 'alto'
+          WHEN CASE WHEN MIN(lp.price) > 0 THEN ((MAX(lp.price) - MIN(lp.price)) / MIN(lp.price)) * 100 ELSE 0 END > 7
+          THEN 'medio'
+          ELSE 'baixo'
+        END as riskLevel,
+        MAX(CASE WHEN lp.state = 'RS' THEN lp.price END) as priceRS,
+        MAX(CASE WHEN lp.state = 'SC' THEN lp.price END) as priceSC,
+        MAX(CASE WHEN lp.state = 'PR' THEN lp.price END) as pricePR
+      FROM products p
+      JOIN (
+        SELECT ph.productId, ph.state, ph.price, ph.collectedAt
+        FROM price_history ph
+        INNER JOIN (
+          SELECT productId, state, MAX(collectedAt) as maxDate
+          FROM price_history
+          GROUP BY productId, state
+        ) latest ON ph.productId = latest.productId AND ph.state = latest.state AND ph.collectedAt = latest.maxDate
+      ) lp ON lp.productId = p.id
+      LEFT JOIN (
+        SELECT productId, state, ROUND(AVG(price), 2) as avgPrice
+        FROM price_history WHERE collectedAt >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+        GROUP BY productId, state
+      ) avg30 ON avg30.productId = p.id AND avg30.state = lp.state
+      LEFT JOIN (
+        SELECT productId, state, ROUND(AVG(price), 2) as avgPrice
+        FROM price_history WHERE collectedAt >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)
+        GROUP BY productId, state
+      ) avg12m ON avg12m.productId = p.id AND avg12m.state = lp.state
+      WHERE p.active = 1
+      GROUP BY p.id, p.name, p.category, p.unit
+      ORDER BY riskScore DESC
+    `);
+    return (result as any)[0] || [];
+  } catch (error: any) {
+    console.error('[getRiskRanking] MySQL error:', error?.message || error);
+    throw error;
+  }
 }
 
 // ========== MARKET ANALYSIS ==========
