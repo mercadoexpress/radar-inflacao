@@ -60,3 +60,16 @@
 - [x] Corrigir Produtos Monitorados: variação entre estados, sem duplicação
 - [x] Corrigir Ranking de Risco: 1 entrada por produto, score por variação entre estados
 - [x] Commit GitHub e novo deploy
+
+## Correção de Lógica de Inflação (Variação Temporal Real)
+
+- [ ] Diagnosticar estrutura do banco e lógica atual de variação
+- [ ] Gerar histórico de preços com datas distintas (30 dias) para cada produto/estado
+- [ ] Corrigir queries SQL: inflação = (preço_atual - preço_anterior) / preço_anterior * 100
+- [ ] Remover variação entre estados como métrica de inflação
+- [ ] Corrigir tendência: >+2% Alta, <-2% Queda, entre -2% e +2% Estável
+- [ ] Corrigir Top 10: ordenar por inflação real positiva (temporal)
+- [ ] Corrigir Ranking de Risco: score baseado em inflação temporal
+- [ ] Corrigir Produtos Monitorados: exibir inflação temporal por estado
+- [ ] Validar consistência de dados antes de exibir
+- [ ] Salvar checkpoint e publicar

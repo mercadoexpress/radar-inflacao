@@ -17,13 +17,13 @@ const categoryLabels: Record<string, string> = {
 };
 
 /**
- * Nível de risco baseado na variação entre estados (regra solicitada):
- * alto  → variação entre estados > 15%
- * médio → variação entre estados > 7%
- * baixo → variação entre estados ≤ 7%
+ * Nível de risco baseado na inflação temporal real (variation30d):
+ * alto  → inflação 30d > 15%
+ * médio → inflação 30d > 7%
+ * baixo → inflação 30d ≤ 7%
  */
 function getRiskLevel(stateVariation: number, variation30d: number) {
-  const absVar = Math.abs(stateVariation);
+  const absVar = Math.abs(variation30d);
   if (absVar > 15) {
     return { level: "alto", color: "#ef4444", bg: "bg-red-50", border: "border-red-200", icon: ShieldAlert };
   }
@@ -122,17 +122,17 @@ export default function Ranking() {
           <h1 className="text-2xl font-bold tracking-tight">Ranking de Risco</h1>
           <div className="flex items-center gap-1 mt-1">
             <p className="text-muted-foreground text-sm">
-              1 entrada por produto — score baseado na variação de preço entre RS, SC e PR
+              1 entrada por produto — score baseado na inflação temporal real (preço atual vs. mês anterior)
             </p>
             <Tooltip>
               <TooltipTrigger><Info className="h-3.5 w-3.5 text-muted-foreground" /></TooltipTrigger>
               <TooltipContent className="max-w-[300px]">
                 <p className="text-xs">
                   <strong>Fórmula do Score de Risco:</strong><br/>
-                  Score = |Var. 30d| × 60% + Variação entre estados × 40%<br/><br/>
-                  <strong>Alto Risco:</strong> Variação entre estados &gt; 15%<br/>
-                  <strong>Moderado:</strong> Variação entre estados &gt; 7%<br/>
-                  <strong>Baixo:</strong> Variação entre estados ≤ 7%<br/><br/>
+                  Score = |Inflação 30d| (variação temporal real)<br/><br/>
+                  <strong>Alto Risco:</strong> Inflação 30d &gt; 15%<br/>
+                  <strong>Moderado:</strong> Inflação 30d &gt; 7%<br/>
+                  <strong>Baixo:</strong> Inflação 30d ≤ 7%<br/><br/>
                   Fonte: Média CEASA RS + SC + PR
                 </p>
               </TooltipContent>
@@ -251,7 +251,7 @@ export default function Ranking() {
             Ranking por Produto — Score Consolidado RS/SC/PR
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Score = |Var. 30d| × 60% + Variação entre estados × 40%. Clique nos títulos para ordenar.
+            Score = |Inflação 30d| (variação temporal real). Clique nos títulos para ordenar.
           </p>
         </CardHeader>
         <CardContent>
@@ -283,13 +283,13 @@ export default function Ranking() {
                       className="text-right py-3 px-2 font-semibold text-muted-foreground text-xs uppercase tracking-wider cursor-pointer hover:text-foreground"
                       onClick={() => handleSort("stateVariation")}
                     >
-                      <div className="flex items-center justify-end">Var. Estados {getSortIcon("stateVariation")}</div>
+                      <div className="flex items-center justify-end">Dif. Regional {getSortIcon("stateVariation")}</div>
                     </th>
                     <th
                       className="text-right py-3 px-2 font-semibold text-muted-foreground text-xs uppercase tracking-wider cursor-pointer hover:text-foreground"
                       onClick={() => handleSort("variation30d")}
                     >
-                      <div className="flex items-center justify-end">Var. 30d {getSortIcon("variation30d")}</div>
+                      <div className="flex items-center justify-end">Inflação 30d {getSortIcon("variation30d")}</div>
                     </th>
                     <th
                       className="text-right py-3 px-2 font-semibold text-muted-foreground text-xs uppercase tracking-wider cursor-pointer hover:text-foreground"

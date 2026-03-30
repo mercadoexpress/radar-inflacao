@@ -152,12 +152,14 @@ export default function Home() {
     return { avg12m: Math.round(avg12m * 100) / 100, mensal: latest };
   }, [allIndices]);
 
-  // Top 10 produtos — unificado com a lógica de pressão inflacionária (Var. 30d)
+  // Top 10 produtos — maior inflação temporal positiva (preço atual vs. 1 mês atrás)
+  // Regra: apenas valores positivos, ordenado por variation30d DESC
   const topRisks = useMemo(() => {
     if (!riskData) return [];
-    // O backend já retorna ordenado por variation30d DESC em getRiskRanking
     return (riskData as any[])
-      .map((r: any) => ({ ...r, variation30d: Number(r.variation30d), currentPrice: Number(r.currentPrice) }))
+      .map((r: any) => ({ ...r, variation30d: Number(r.variation30d ?? 0), currentPrice: Number(r.currentPrice) }))
+      .filter((r: any) => r.variation30d > 0)  // apenas inflação positiva
+      .sort((a: any, b: any) => b.variation30d - a.variation30d)  // maior primeiro
       .slice(0, 10);
   }, [riskData]);
 
@@ -342,7 +344,7 @@ export default function Home() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold">Top 10 Produtos com Maior Pressão Inflacionária</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Produtos com maior variação positiva nos últimos 30 dias (do mais inflacionado ao menor) — Fonte: CEASA RS / SC / PR
+            Produtos com maior inflação real no período (preço atual vs. mês anterior) — Fonte: CEASA RS / SC / PR
           </p>
         </CardHeader>
         <CardContent>

@@ -153,53 +153,85 @@ export async function getMonthlyAverages(productId: number, state?: string) {
 }
 
 // ========== UNIFIED METRICS LOGIC ==========
+// Variação temporal real: preço atual vs. preço do período anterior
+// variation30d  = (preço_atual - preço_1_mês_atrás)  / preço_1_mês_atrás  * 100
+// variation90d  = (preço_atual - preço_3_meses_atrás) / preço_3_meses_atrás * 100
+// variation12m  = (preço_atual - preço_12_meses_atrás) / preço_12_meses_atrás * 100
+// tendência: >+2% Alta | <-2% Queda | entre -2% e +2% Estável
 const unifiedMetricsSql = (state?: string) => sql`
   SELECT p.id, p.name, p.category, p.unit,
          curr.price as currentPrice, curr.state, curr.collectedAt as lastUpdate, curr.source,
-         avg30.avgPrice as avg30d,
-         avg90.avgPrice as avg90d,
-         avg12m.avgPrice as avg12m,
+         prev1m.price as prev1mPrice,
+         prev3m.price as prev3mPrice,
+         prev12m.price as prev12mPrice,
          CASE 
-           WHEN avg30.avgPrice IS NOT NULL AND avg30.avgPrice > 0
-           THEN ROUND(((curr.price - avg30.avgPrice) / avg30.avgPrice) * 100, 2)
-           ELSE 0
+           WHEN prev1m.price IS NOT NULL AND prev1m.price > 0
+           THEN ROUND(((curr.price - prev1m.price) / prev1m.price) * 100, 2)
+           ELSE NULL
          END as variation30d,
          CASE 
-           WHEN avg90.avgPrice IS NOT NULL AND avg90.avgPrice > 0
-           THEN ROUND(((curr.price - avg90.avgPrice) / avg90.avgPrice) * 100, 2)
-           ELSE 0
+           WHEN prev3m.price IS NOT NULL AND prev3m.price > 0
+           THEN ROUND(((curr.price - prev3m.price) / prev3m.price) * 100, 2)
+           ELSE NULL
          END as variation90d,
          CASE 
-           WHEN avg12m.avgPrice IS NOT NULL AND avg12m.avgPrice > 0
-           THEN ROUND(((curr.price - avg12m.avgPrice) / avg12m.avgPrice) * 100, 2)
-           ELSE 0
+           WHEN prev12m.price IS NOT NULL AND prev12m.price > 0
+           THEN ROUND(((curr.price - prev12m.price) / prev12m.price) * 100, 2)
+           ELSE NULL
          END as variation12m,
+         CASE
+           WHEN prev1m.price IS NOT NULL AND prev1m.price > 0
+             AND ROUND(((curr.price - prev1m.price) / prev1m.price) * 100, 2) > 2
+           THEN 'alta'
+           WHEN prev1m.price IS NOT NULL AND prev1m.price > 0
+             AND ROUND(((curr.price - prev1m.price) / prev1m.price) * 100, 2) < -2
+           THEN 'queda'
+           ELSE 'estavel'
+         END as trend,
          ROUND(vol.stddev_price, 2) as volatility
   FROM products p
   JOIN (
     SELECT ph.productId, ph.state, ph.price, ph.collectedAt, ph.source
     FROM price_history ph
-    WHERE ph.collectedAt = (SELECT MAX(collectedAt) FROM price_history WHERE productId = ph.productId AND state = ph.state)
-    ${state ? sql`AND ph.state = ${state}` : sql``}
+    INNER JOIN (
+      SELECT productId, state, MAX(collectedAt) as maxDate
+      FROM price_history GROUP BY productId, state
+    ) mx ON ph.productId = mx.productId AND ph.state = mx.state AND ph.collectedAt = mx.maxDate
+    ${state ? sql`WHERE ph.state = ${state}` : sql``}
   ) curr ON curr.productId = p.id
   LEFT JOIN (
-    SELECT productId, state, ROUND(AVG(price), 2) as avgPrice
-    FROM price_history WHERE collectedAt >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-    GROUP BY productId, state
-  ) avg30 ON avg30.productId = p.id AND avg30.state = curr.state
+    SELECT ph.productId, ph.state, ph.price
+    FROM price_history ph
+    INNER JOIN (
+      SELECT productId, state, MAX(collectedAt) as maxDate
+      FROM price_history
+      WHERE collectedAt < DATE_SUB(CURDATE(), INTERVAL 20 DAY)
+      GROUP BY productId, state
+    ) mx ON ph.productId = mx.productId AND ph.state = mx.state AND ph.collectedAt = mx.maxDate
+  ) prev1m ON prev1m.productId = p.id AND prev1m.state = curr.state
   LEFT JOIN (
-    SELECT productId, state, ROUND(AVG(price), 2) as avgPrice
-    FROM price_history WHERE collectedAt >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
-    GROUP BY productId, state
-  ) avg90 ON avg90.productId = p.id AND avg90.state = curr.state
+    SELECT ph.productId, ph.state, ph.price
+    FROM price_history ph
+    INNER JOIN (
+      SELECT productId, state, MAX(collectedAt) as maxDate
+      FROM price_history
+      WHERE collectedAt < DATE_SUB(CURDATE(), INTERVAL 75 DAY)
+      GROUP BY productId, state
+    ) mx ON ph.productId = mx.productId AND ph.state = mx.state AND ph.collectedAt = mx.maxDate
+  ) prev3m ON prev3m.productId = p.id AND prev3m.state = curr.state
   LEFT JOIN (
-    SELECT productId, state, ROUND(AVG(price), 2) as avgPrice
-    FROM price_history WHERE collectedAt >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)
-    GROUP BY productId, state
-  ) avg12m ON avg12m.productId = p.id AND avg12m.state = curr.state
+    SELECT ph.productId, ph.state, ph.price
+    FROM price_history ph
+    INNER JOIN (
+      SELECT productId, state, MAX(collectedAt) as maxDate
+      FROM price_history
+      WHERE collectedAt < DATE_SUB(CURDATE(), INTERVAL 335 DAY)
+      GROUP BY productId, state
+    ) mx ON ph.productId = mx.productId AND ph.state = mx.state AND ph.collectedAt = mx.maxDate
+  ) prev12m ON prev12m.productId = p.id AND prev12m.state = curr.state
   LEFT JOIN (
     SELECT productId, state, ROUND(STDDEV(price), 2) as stddev_price
-    FROM price_history WHERE collectedAt >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+    FROM price_history WHERE collectedAt >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)
     GROUP BY productId, state
   ) vol ON vol.productId = p.id AND vol.state = curr.state
   WHERE p.active = 1
@@ -264,25 +296,34 @@ export async function getConsolidatedProducts() {
         MAX(CASE WHEN lp.state = 'PR' THEN lp.source END) as sourcePR,
         ROUND(AVG(lp.price), 2) as avgPrice,
         MAX(lp.collectedAt) as lastUpdate,
+        -- Variação entre estados (diferença regional de preços)
         CASE 
           WHEN MIN(lp.price) > 0 
           THEN ROUND(((MAX(lp.price) - MIN(lp.price)) / MIN(lp.price)) * 100, 2)
           ELSE 0
         END as stateVariation,
+        -- Variação temporal real: preço atual vs. preço 1 mês atrás
         ROUND(AVG(
           CASE 
-            WHEN avg30.avgPrice IS NOT NULL AND avg30.avgPrice > 0
-            THEN ((lp.price - avg30.avgPrice) / avg30.avgPrice) * 100
-            ELSE 0
+            WHEN prev1m.price IS NOT NULL AND prev1m.price > 0
+            THEN ((lp.price - prev1m.price) / prev1m.price) * 100
+            ELSE NULL
           END
         ), 2) as variation30d,
+        -- Variação temporal 12 meses: preço atual vs. preço 12 meses atrás
         ROUND(AVG(
           CASE 
-            WHEN avg12m.avgPrice IS NOT NULL AND avg12m.avgPrice > 0
-            THEN ((lp.price - avg12m.avgPrice) / avg12m.avgPrice) * 100
-            ELSE 0
+            WHEN prev12m.price IS NOT NULL AND prev12m.price > 0
+            THEN ((lp.price - prev12m.price) / prev12m.price) * 100
+            ELSE NULL
           END
-        ), 2) as variation12m
+        ), 2) as variation12m,
+        -- Tendência baseada na inflação temporal
+        CASE
+          WHEN AVG(CASE WHEN prev1m.price > 0 THEN ((lp.price - prev1m.price) / prev1m.price) * 100 ELSE NULL END) > 2 THEN 'alta'
+          WHEN AVG(CASE WHEN prev1m.price > 0 THEN ((lp.price - prev1m.price) / prev1m.price) * 100 ELSE NULL END) < -2 THEN 'queda'
+          ELSE 'estavel'
+        END as trend
       FROM products p
       JOIN (
         SELECT ph.productId, ph.state, ph.price, ph.source, ph.collectedAt
@@ -294,15 +335,25 @@ export async function getConsolidatedProducts() {
         ) latest ON ph.productId = latest.productId AND ph.state = latest.state AND ph.collectedAt = latest.maxDate
       ) lp ON lp.productId = p.id
       LEFT JOIN (
-        SELECT productId, state, ROUND(AVG(price), 2) as avgPrice
-        FROM price_history WHERE collectedAt >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-        GROUP BY productId, state
-      ) avg30 ON avg30.productId = p.id AND avg30.state = lp.state
+        SELECT ph.productId, ph.state, ph.price
+        FROM price_history ph
+        INNER JOIN (
+          SELECT productId, state, MAX(collectedAt) as maxDate
+          FROM price_history
+          WHERE collectedAt < DATE_SUB(CURDATE(), INTERVAL 20 DAY)
+          GROUP BY productId, state
+        ) mx ON ph.productId = mx.productId AND ph.state = mx.state AND ph.collectedAt = mx.maxDate
+      ) prev1m ON prev1m.productId = p.id AND prev1m.state = lp.state
       LEFT JOIN (
-        SELECT productId, state, ROUND(AVG(price), 2) as avgPrice
-        FROM price_history WHERE collectedAt >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)
-        GROUP BY productId, state
-      ) avg12m ON avg12m.productId = p.id AND avg12m.state = lp.state
+        SELECT ph.productId, ph.state, ph.price
+        FROM price_history ph
+        INNER JOIN (
+          SELECT productId, state, MAX(collectedAt) as maxDate
+          FROM price_history
+          WHERE collectedAt < DATE_SUB(CURDATE(), INTERVAL 335 DAY)
+          GROUP BY productId, state
+        ) mx ON ph.productId = mx.productId AND ph.state = mx.state AND ph.collectedAt = mx.maxDate
+      ) prev12m ON prev12m.productId = p.id AND prev12m.state = lp.state
       WHERE p.active = 1
       GROUP BY p.id, p.name, p.category, p.unit
       ORDER BY p.name ASC
@@ -314,19 +365,15 @@ export async function getConsolidatedProducts() {
   }
 }
 
-// ========== RISK RANKING (1 entrada por produto, score consolidado) ==========
+// ========== RISK RANKING (1 entrada por produto, score consolidado com variação temporal) ==========
 export async function getRiskRanking(state?: string) {
   const db = await getDb();
   if (!db) return [];
-  
-  if (state) {
-    // Se filtrar por estado, retorna dados daquele estado
-    const result = await db.execute(sql`${unifiedMetricsSql(state)} ORDER BY variation30d DESC`);
-    return (result as any)[0] || [];
-  }
 
-  // Sem filtro de estado: retorna 1 entrada por produto com score consolidado
-  // Usa latest_prices CTE-style via subquery para evitar subquery correlacionada
+  // Retorna 1 entrada por produto com:
+  // - variação temporal real (preço atual vs. preço 1 mês atrás)
+  // - score de risco baseado em variação temporal + volatilidade
+  // - nível: alto (>15%), medio (>7%), baixo
   try {
     const result = await db.execute(sql`
       SELECT 
@@ -339,46 +386,49 @@ export async function getRiskRanking(state?: string) {
           IF(MAX(CASE WHEN lp.state = 'RS' THEN 1 ELSE 0 END) = 1, 'RS', NULL),
           IF(MAX(CASE WHEN lp.state = 'SC' THEN 1 ELSE 0 END) = 1, 'SC', NULL)
         )) as source,
-        CASE 
-          WHEN MIN(lp.price) > 0 
-          THEN ROUND(((MAX(lp.price) - MIN(lp.price)) / MIN(lp.price)) * 100, 2)
-          ELSE 0
-        END as stateVariation,
         ROUND(AVG(
           CASE 
-            WHEN avg30.avgPrice IS NOT NULL AND avg30.avgPrice > 0
-            THEN ((lp.price - avg30.avgPrice) / avg30.avgPrice) * 100
-            ELSE 0
+            WHEN prev1m.price IS NOT NULL AND prev1m.price > 0
+            THEN ((lp.price - prev1m.price) / prev1m.price) * 100
+            ELSE NULL
           END
         ), 2) as variation30d,
         ROUND(AVG(
           CASE 
-            WHEN avg12m.avgPrice IS NOT NULL AND avg12m.avgPrice > 0
-            THEN ((lp.price - avg12m.avgPrice) / avg12m.avgPrice) * 100
-            ELSE 0
+            WHEN prev12m.price IS NOT NULL AND prev12m.price > 0
+            THEN ((lp.price - prev12m.price) / prev12m.price) * 100
+            ELSE NULL
           END
         ), 2) as variation12m,
-        ROUND(
-          ABS(AVG(
-            CASE 
-              WHEN avg30.avgPrice IS NOT NULL AND avg30.avgPrice > 0
-              THEN ((lp.price - avg30.avgPrice) / avg30.avgPrice) * 100
-              ELSE 0
-            END
-          )) * 0.6 +
+        ROUND(ABS(AVG(
           CASE 
-            WHEN MIN(lp.price) > 0 
-            THEN ((MAX(lp.price) - MIN(lp.price)) / MIN(lp.price)) * 100 * 0.4
+            WHEN prev1m.price IS NOT NULL AND prev1m.price > 0
+            THEN ((lp.price - prev1m.price) / prev1m.price) * 100
             ELSE 0
           END
-        , 2) as riskScore,
+        )), 2) as riskScore,
         CASE 
-          WHEN CASE WHEN MIN(lp.price) > 0 THEN ((MAX(lp.price) - MIN(lp.price)) / MIN(lp.price)) * 100 ELSE 0 END > 15
-          THEN 'alto'
-          WHEN CASE WHEN MIN(lp.price) > 0 THEN ((MAX(lp.price) - MIN(lp.price)) / MIN(lp.price)) * 100 ELSE 0 END > 7
-          THEN 'medio'
+          WHEN ABS(AVG(
+            CASE WHEN prev1m.price IS NOT NULL AND prev1m.price > 0
+            THEN ((lp.price - prev1m.price) / prev1m.price) * 100 ELSE 0 END
+          )) > 15 THEN 'alto'
+          WHEN ABS(AVG(
+            CASE WHEN prev1m.price IS NOT NULL AND prev1m.price > 0
+            THEN ((lp.price - prev1m.price) / prev1m.price) * 100 ELSE 0 END
+          )) > 7 THEN 'medio'
           ELSE 'baixo'
         END as riskLevel,
+        CASE
+          WHEN AVG(
+            CASE WHEN prev1m.price IS NOT NULL AND prev1m.price > 0
+            THEN ((lp.price - prev1m.price) / prev1m.price) * 100 ELSE NULL END
+          ) > 2 THEN 'alta'
+          WHEN AVG(
+            CASE WHEN prev1m.price IS NOT NULL AND prev1m.price > 0
+            THEN ((lp.price - prev1m.price) / prev1m.price) * 100 ELSE NULL END
+          ) < -2 THEN 'queda'
+          ELSE 'estavel'
+        END as trend,
         MAX(CASE WHEN lp.state = 'RS' THEN lp.price END) as priceRS,
         MAX(CASE WHEN lp.state = 'SC' THEN lp.price END) as priceSC,
         MAX(CASE WHEN lp.state = 'PR' THEN lp.price END) as pricePR
@@ -388,20 +438,30 @@ export async function getRiskRanking(state?: string) {
         FROM price_history ph
         INNER JOIN (
           SELECT productId, state, MAX(collectedAt) as maxDate
-          FROM price_history
-          GROUP BY productId, state
+          FROM price_history GROUP BY productId, state
         ) latest ON ph.productId = latest.productId AND ph.state = latest.state AND ph.collectedAt = latest.maxDate
+        ${state ? sql`WHERE ph.state = ${state}` : sql``}
       ) lp ON lp.productId = p.id
       LEFT JOIN (
-        SELECT productId, state, ROUND(AVG(price), 2) as avgPrice
-        FROM price_history WHERE collectedAt >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-        GROUP BY productId, state
-      ) avg30 ON avg30.productId = p.id AND avg30.state = lp.state
+        SELECT ph.productId, ph.state, ph.price
+        FROM price_history ph
+        INNER JOIN (
+          SELECT productId, state, MAX(collectedAt) as maxDate
+          FROM price_history
+          WHERE collectedAt < DATE_SUB(CURDATE(), INTERVAL 20 DAY)
+          GROUP BY productId, state
+        ) mx ON ph.productId = mx.productId AND ph.state = mx.state AND ph.collectedAt = mx.maxDate
+      ) prev1m ON prev1m.productId = p.id AND prev1m.state = lp.state
       LEFT JOIN (
-        SELECT productId, state, ROUND(AVG(price), 2) as avgPrice
-        FROM price_history WHERE collectedAt >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)
-        GROUP BY productId, state
-      ) avg12m ON avg12m.productId = p.id AND avg12m.state = lp.state
+        SELECT ph.productId, ph.state, ph.price
+        FROM price_history ph
+        INNER JOIN (
+          SELECT productId, state, MAX(collectedAt) as maxDate
+          FROM price_history
+          WHERE collectedAt < DATE_SUB(CURDATE(), INTERVAL 335 DAY)
+          GROUP BY productId, state
+        ) mx ON ph.productId = mx.productId AND ph.state = mx.state AND ph.collectedAt = mx.maxDate
+      ) prev12m ON prev12m.productId = p.id AND prev12m.state = lp.state
       WHERE p.active = 1
       GROUP BY p.id, p.name, p.category, p.unit
       ORDER BY riskScore DESC

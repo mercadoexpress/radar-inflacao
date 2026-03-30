@@ -129,8 +129,9 @@ export default function Produtos() {
             const pricePR = Number(product.pricePR || 0);
             const avgPrice = Number(product.avgPrice || 0);
             const stateVariation = Number(product.stateVariation || 0);
-            const variation30d = Number(product.variation30d || 0);
-            const variation12m = Number(product.variation12m || 0);
+            // variation30d = inflação temporal real (preço atual vs. mês anterior)
+            const variation30d = product.variation30d != null ? Number(product.variation30d) : null;
+            const variation12m = product.variation12m != null ? Number(product.variation12m) : null;
 
             // Fonte exata baseada nos estados disponíveis
             const availableStates = [
@@ -187,7 +188,7 @@ export default function Produtos() {
                         <tr className="border-b border-border">
                           <th className="text-left py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Estado</th>
                           <th className="text-right py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Preço Atual</th>
-                          <th className="text-right py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Dif. da Média</th>
+                          <th className="text-right py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Inflação 30d</th>
                           <th className="text-right py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Var. 12m</th>
                           <th className="text-center py-2 px-2 font-semibold text-muted-foreground text-xs uppercase">Tendência</th>
                         </tr>
@@ -198,7 +199,6 @@ export default function Produtos() {
                           { state: 'SC', price: priceSC, source: product.sourceSC || 'CEASA SC' },
                           { state: 'PR', price: pricePR, source: product.sourcePR || 'CEASA PR' },
                         ].filter(row => row.price > 0).map((row) => {
-                          const diffFromAvg = avgPrice > 0 ? ((row.price - avgPrice) / avgPrice) * 100 : 0;
                           const isCheapest = cheapest?.state === row.state && statePrices.length > 1;
                           const isMostExpensive = mostExpensive?.state === row.state && statePrices.length > 1;
                           return (
@@ -215,8 +215,8 @@ export default function Produtos() {
                                 R$ {row.price.toFixed(2)}
                               </td>
                               <td className="py-2.5 px-2 text-right font-mono text-xs">
-                                <span className={diffFromAvg > 0 ? 'text-red-600' : diffFromAvg < 0 ? 'text-emerald-600' : 'text-gray-500'}>
-                                  {diffFromAvg > 0 ? '+' : ''}{diffFromAvg.toFixed(1)}%
+                                <span className={variation30d > 0 ? 'text-red-600' : variation30d < 0 ? 'text-emerald-600' : 'text-gray-500'}>
+                                  {variation30d != null ? `${variation30d > 0 ? '+' : ''}${variation30d.toFixed(1)}%` : '—'}
                                 </span>
                               </td>
                               <td className="py-2.5 px-2 text-right font-mono text-xs">
