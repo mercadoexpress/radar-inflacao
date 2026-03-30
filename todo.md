@@ -1,0 +1,26 @@
+# Radar Inflação — TODO
+
+- [x] Migrar drizzle/schema.ts com tabelas de produtos, preços, índices e alertas
+- [x] Aplicar migrações SQL no banco de dados
+- [x] Migrar server/db.ts com todas as funções de consulta
+- [x] Migrar server/routers.ts com todos os procedimentos tRPC
+- [x] Migrar server/scraper.ts
+- [x] Migrar shared/types.ts
+- [x] Migrar client/src/index.css com tema Express
+- [x] Migrar client/src/App.tsx com roteamento completo
+- [x] Migrar DashboardLayout.tsx
+- [x] Migrar página Home.tsx
+- [x] Migrar página Produtos.tsx
+- [x] Migrar página Ranking.tsx
+- [x] Migrar página Top10.tsx
+- [x] Migrar página ComparativoRegional.tsx
+- [x] Migrar página Indices.tsx
+- [x] Migrar página Historico.tsx
+- [x] Migrar página Previsoes.tsx
+- [x] Migrar página Alertas.tsx
+- [x] Migrar NotFound.tsx
+- [x] Instalar dependências extras (cheerio, node-cron, axios)
+- [x] Popular banco com dados iniciais via update-seed.mjs (27 produtos, 972 preços, 96 índices)
+- [x] Corrigir erros de imports e compatibilidade (tipos TypeScript no scraper, collectedAt)
+- [x] Executar testes vitest (10 testes passando)
+- [x] Salvar checkpoint e publicar

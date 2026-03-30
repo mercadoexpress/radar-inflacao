@@ -4,32 +4,41 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import DashboardLayout from "./components/DashboardLayout";
 import Home from "./pages/Home";
+import Produtos from "./pages/Produtos";
+import Historico from "./pages/Historico";
+import Previsoes from "./pages/Previsoes";
+import Ranking from "./pages/Ranking";
+import Indices from "./pages/Indices";
+import Alertas from "./pages/Alertas";
+import Top10 from "./pages/Top10";
+import ComparativoRegional from "./pages/ComparativoRegional";
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
-    <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
-    </Switch>
+    <DashboardLayout>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/produtos" component={Produtos} />
+        <Route path="/historico" component={Historico} />
+        <Route path="/previsoes" component={Previsoes} />
+        <Route path="/ranking" component={Ranking} />
+        <Route path="/top10" component={Top10} />
+        <Route path="/comparativo" component={ComparativoRegional} />
+        <Route path="/indices" component={Indices} />
+        <Route path="/alertas" component={Alertas} />
+        <Route path="/404" component={NotFound} />
+        <Route component={NotFound} />
+      </Switch>
+    </DashboardLayout>
   );
 }
-
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
           <Router />
