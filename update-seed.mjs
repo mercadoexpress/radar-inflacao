@@ -174,7 +174,8 @@ for (const [productName, prices] of Object.entries(basePrices)) {
 
     for (const [state, basePrice] of Object.entries(prices)) {
       const price = (basePrice / trendFactor) * seasonalFactor * noise;
-      priceRecords.push([productName, state, "CEASA RS/SC/PR", price.toFixed(2), dateStr]);
+      const sourceLabel = `CEASA ${state}`;
+      priceRecords.push([productName, state, sourceLabel, price.toFixed(2), dateStr]);
     }
   }
 }

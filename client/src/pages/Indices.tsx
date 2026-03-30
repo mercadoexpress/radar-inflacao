@@ -175,17 +175,21 @@ export default function Indices() {
                     </p>
                     <p className="text-xs text-muted-foreground">Mensal ({stats.latestPeriod})</p>
                     <div className="mt-2 pt-2 border-t border-border/50 space-y-1.5">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">Média 12m</span>
-                        <span className="font-medium">{stats.avg12m.toFixed(2)}%</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">Acumulado 12m</span>
-                        <span className="font-medium">{stats.acumulado12m.toFixed(2)}%</span>
-                      </div>
+                      {idx !== "SELIC" && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Média 12m</span>
+                          <span className="font-medium">{stats.avg12m.toFixed(2)}%</span>
+                        </div>
+                      )}
+                      {idx !== "SELIC" && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Acumulado 12m</span>
+                          <span className="font-medium">{stats.acumulado12m.toFixed(2)}%</span>
+                        </div>
+                      )}
                       <div className="flex flex-col gap-1 mt-1">
                         {target && <StatusBadge value={stats.latest} reference={target.value} />}
-                        {target && <AccumulatedStatusBadge acumulado={stats.acumulado12m} annualTarget={target.annualTarget} />}
+                        {idx !== "SELIC" && target && <AccumulatedStatusBadge acumulado={stats.acumulado12m} annualTarget={target.annualTarget} />}
                       </div>
                     </div>
                   </div>
@@ -342,7 +346,6 @@ export default function Indices() {
             </p>
             <div className="bg-white rounded p-2 text-xs space-y-1">
               <p><strong>Valor Atual:</strong> <span className="font-mono text-red-600">{indexStats["SELIC"]?.latest.toFixed(2) || "—"}%</span> (a.a.)</p>
-              <p><strong>Acumulado 12m:</strong> <span className="font-mono text-red-600">{indexStats["SELIC"]?.acumulado12m.toFixed(2) || "—"}%</span></p>
               <p><strong>Influência:</strong> Selic acima de 10% a.a. aumenta custos de capital, levando a aumentos de 2-4% nos preços de alimentos em 60-90 dias.</p>
             </div>
           </div>

@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { TrendingUp, TrendingDown, Minus, Target, Gauge, BarChart3, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Target, Gauge, BarChart3, AlertTriangle, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
 // ============================================================
 // ANÁLISE PROFISSIONAL DE MERCADO — ATUALIZAÇÃO DIÁRIA
@@ -400,10 +400,29 @@ export default function Previsoes() {
     return "text-gray-600";
   };
 
+  // Análise profissional via LLM — dados atualizados diariamente
+  const llmAnalysisInput = useMemo(() => {
+    if (!forecast || !selectedProductInfo) return null;
+    const f = forecast as any;
+    return {
+      productName: selectedProductInfo.name,
+      trend: f.trend,
+      currentPrice: Number(f.lastPrice || 0),
+      variation30d: Number(f.var30d || f.variation30d || 0),
+      variation90d: Number(f.var90d || f.variation90d || 0),
+      variation12m: Number(f.var12m || f.variation12m || 0),
+    };
+  }, [forecast, selectedProductInfo]);
+  const { data: llmAnalysis, isLoading: llmLoading } = trpc.prices.marketAnalysisLLM.useQuery(
+    llmAnalysisInput!,
+    { enabled: !!llmAnalysisInput, staleTime: 6 * 60 * 60 * 1000 }
+  );
+  // Fallback para análise estática enquanto LLM carrega ou em caso de erro
   const marketAnalysis = useMemo(() => {
+    if (llmAnalysis) return llmAnalysis;
     if (!forecast || !selectedProductInfo) return null;
     return getMarketExplanation(selectedProductInfo.name, forecast.trend);
-  }, [forecast, selectedProductInfo]);
+  }, [llmAnalysis, forecast, selectedProductInfo]);
 
   return (
     <div className="space-y-6">
@@ -500,7 +519,7 @@ export default function Previsoes() {
           </div>
 
           {/* Análise Profissional de Mercado */}
-          {marketAnalysis && (
+          {(marketAnalysis || llmLoading) && (
             <Card className="border border-amber-200 bg-amber-50/50">
               <CardContent className="pt-5 pb-5">
                 <div className="flex gap-3">
@@ -510,8 +529,19 @@ export default function Previsoes() {
                       <p className="text-sm font-semibold text-amber-800 mb-2">
                         Por que a tendência de {forecast.trend} para {selectedProductInfo?.name}?
                       </p>
-                      <p className="text-sm text-amber-700 leading-relaxed">
-                        {marketAnalysis.text}
+                      {llmLoading && !marketAnalysis ? (
+                        <div className="flex items-center gap-2 text-sm text-amber-600">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Gerando análise profissional com dados de mercado atualizados...</span>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-amber-700 leading-relaxed">
+                          {marketAnalysis?.text}
+                        </p>
+                      )}
+                      <p className="text-xs text-amber-600 mt-2">
+                        {llmAnalysis && <span className="font-medium">Análise gerada por IA com dados de mercado ({new Date().toLocaleDateString('pt-BR')}) | </span>}
+                        Fonte: CEASA RS / SC / PR
                       </p>
                       <p className="text-xs text-amber-600 mt-2">
                         Preço médio (6 meses): R$ {forecast.avgPrice?.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} | 
@@ -529,7 +559,7 @@ export default function Previsoes() {
                           <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Pontos de Vantagem para Negociação</p>
                         </div>
                         <ul className="space-y-1.5">
-                          {marketAnalysis.vantagens.map((v, i) => (
+                          {(marketAnalysis?.vantagens as string[] || []).map((v: string, i: number) => (
                             <li key={i} className="flex items-start gap-2 text-xs text-emerald-700">
                               <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
                               <span>{v}</span>
@@ -545,7 +575,7 @@ export default function Previsoes() {
                           <p className="text-xs font-semibold text-red-700 uppercase tracking-wider">Pontos de Atenção</p>
                         </div>
                         <ul className="space-y-1.5">
-                          {marketAnalysis.atencao.map((a, i) => (
+                          {(marketAnalysis?.atencao as string[] || []).map((a: string, i: number) => (
                             <li key={i} className="flex items-start gap-2 text-xs text-red-700">
                               <span className="text-red-500 mt-0.5 shrink-0">•</span>
                               <span>{a}</span>

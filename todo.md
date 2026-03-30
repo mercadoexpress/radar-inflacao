@@ -35,3 +35,14 @@
 - [x] Atualizar update-seed.mjs com preços reais dos 26 produtos
 - [x] Repopular banco com dados reais
 - [x] Publicar versão atualizada
+
+## Ajustes de Consistência e Análise Profissional
+
+- [ ] Ajuste 1: Exibir fonte exata por estado (CEASA RS / SC / Média CEASA RS+SC)
+- [ ] Ajuste 2: Corrigir contagem de produtos únicos (distinct por nome)
+- [ ] Ajuste 3: Previsões com análise profissional via LLM + dados reais
+- [ ] Ajuste 4: Filtros no Ranking de Risco (nível, estado, produto)
+- [ ] Ajuste 5: Remover "Acumulado 12m" da SELIC
+- [ ] Ajuste 6: Validar consistência de dados entre telas
+- [ ] Commit e push no GitHub
+- [ ] Novo deploy no Manus

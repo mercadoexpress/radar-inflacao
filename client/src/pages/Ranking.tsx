@@ -52,6 +52,7 @@ export default function Ranking() {
   const [stateFilter, setStateFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [riskFilter, setRiskFilter] = useState<string>("all");
+  const [productFilter, setProductFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "variation12m", direction: "desc" });
   
@@ -77,10 +78,18 @@ export default function Ranking() {
     }));
   }, [riskData]);
 
+  // Lista de produtos únicos para o filtro
+  const uniqueProductNames = useMemo(() => {
+    const names = new Set<string>();
+    allData.forEach((r) => names.add(r.name));
+    return Array.from(names).sort();
+  }, [allData]);
+
   const filteredData = useMemo(() => {
     let data = [...allData];
     if (categoryFilter !== "all") data = data.filter((r) => r.category === categoryFilter);
     if (riskFilter !== "all") data = data.filter((r) => r.riskLevel.level === riskFilter);
+    if (productFilter !== "all") data = data.filter((r) => r.name === productFilter);
     if (searchTerm.trim()) data = data.filter((r) => r.name.toLowerCase().includes(searchTerm.toLowerCase()));
     
     // Ordenação
@@ -176,6 +185,15 @@ export default function Ranking() {
               <SelectItem value="PR">Paraná</SelectItem>
               <SelectItem value="SC">Santa Catarina</SelectItem>
               <SelectItem value="RS">Rio Grande do Sul</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={productFilter} onValueChange={setProductFilter}>
+            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Produto" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os produtos</SelectItem>
+              {uniqueProductNames.map((name) => (
+                <SelectItem key={name} value={name}>{name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

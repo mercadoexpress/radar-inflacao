@@ -126,6 +126,19 @@ export default function Produtos() {
             acc[p.state] = Number(p.price);
             return acc;
           }, {});
+          // Fonte exata: estados presentes nos dados
+          const statesUsed = prices.map((p: any) => p.state as string).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i).sort();
+          const stateLabels: Record<string, string> = { RS: 'CEASA RS', SC: 'CEASA SC', PR: 'CEASA PR' };
+          const sourceLabel = statesUsed.length === 1
+            ? stateLabels[statesUsed[0]]
+            : statesUsed.length === 2
+              ? `Média ${statesUsed.map((s: string) => stateLabels[s]).join(' + ')}`
+              : 'Média CEASA RS + SC + PR';
+          // Dados de variação e tendência por estado
+          const stateDataMap = prices.reduce((acc: Record<string, any>, p: any) => {
+            acc[p.state] = p;
+            return acc;
+          }, {});
 
           return (
             <Card key={productName}>
@@ -145,7 +158,7 @@ export default function Produtos() {
                   <div className="text-right">
                     <p className="text-2xl font-bold">R$ {avgPrice.toFixed(2)}</p>
                     <p className="text-xs text-muted-foreground">Média</p>
-                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">Fonte: CEASA RS / SC / PR</p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">Fonte: {sourceLabel}</p>
                   </div>
                 </div>
               </CardHeader>
@@ -163,21 +176,38 @@ export default function Produtos() {
                     <tbody>
                       {["PR", "SC", "RS"].map((state) => {
                         const statePrice = pricesByState[state];
+                        const stateData = stateDataMap[state];
                         if (!statePrice) return null;
+                        const var12m = Number(stateData?.variation12m || 0);
+                        const trend = stateData?.trend || (var12m > 1 ? 'alta' : var12m < -1 ? 'queda' : 'estavel');
                         return (
                           <tr key={state} className="border-b border-border/50 hover:bg-muted/30">
-                            <td className="py-2.5 px-2 font-medium">{state}</td>
+                            <td className="py-2.5 px-2 font-medium">
+                              <div>{state}</div>
+                              <div className="text-[10px] text-muted-foreground/70">{stateLabels[state]}</div>
+                            </td>
                             <td className="py-2.5 px-2 text-right font-mono font-medium">
                               R$ {statePrice.toFixed(2)}
                             </td>
                             <td className="py-2.5 px-2 text-right font-mono">
-                              <span className="text-emerald-600">+2.5%</span>
+                              <span className={var12m > 0 ? 'text-red-600' : var12m < 0 ? 'text-emerald-600' : 'text-gray-500'}>
+                                {var12m > 0 ? '+' : ''}{var12m.toFixed(1)}%
+                              </span>
                             </td>
                             <td className="py-2.5 px-2 text-center">
-                              <Badge variant="outline" className="text-xs gap-1 bg-emerald-50 text-emerald-700 border-emerald-200">
-                                <TrendingUp className="h-3 w-3" />
-                                Alta
-                              </Badge>
+                              {trend === 'alta' ? (
+                                <Badge variant="outline" className="text-xs gap-1 bg-red-50 text-red-700 border-red-200">
+                                  <TrendingUp className="h-3 w-3" />Alta
+                                </Badge>
+                              ) : trend === 'queda' ? (
+                                <Badge variant="outline" className="text-xs gap-1 bg-emerald-50 text-emerald-700 border-emerald-200">
+                                  <TrendingDown className="h-3 w-3" />Queda
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs gap-1 bg-gray-50 text-gray-700 border-gray-200">
+                                  <Minus className="h-3 w-3" />Estável
+                                </Badge>
+                              )}
                             </td>
                           </tr>
                         );

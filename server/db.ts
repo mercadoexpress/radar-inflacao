@@ -211,8 +211,16 @@ export async function getDashboardSummary(state?: string) {
   if (!db) return { totalProducts: 0, avgVariation: 0, highRiskCount: 0, categories: [], productVariations: [] };
   const productResult = await db.execute(sql`${unifiedMetricsSql(state)} ORDER BY variation30d DESC`);
   const productVariations = (productResult as any)[0] || [];
-  const categoriesMap: Record<string, any> = {};
+  // Agrupar por produto único (distinct por nome) para evitar duplicação por estado
+  const uniqueProductsMap: Record<string, any> = {};
   productVariations.forEach((p: any) => {
+    if (!uniqueProductsMap[p.name]) {
+      uniqueProductsMap[p.name] = { ...p };
+    }
+  });
+  const uniqueProducts = Object.values(uniqueProductsMap);
+  const categoriesMap: Record<string, any> = {};
+  uniqueProducts.forEach((p: any) => {
     if (!categoriesMap[p.category]) {
       categoriesMap[p.category] = { category: p.category, productCount: 0, totalVariation: 0 };
     }
@@ -224,7 +232,7 @@ export async function getDashboardSummary(state?: string) {
     productCount: c.productCount,
     avgVariation: Math.round((c.totalVariation / c.productCount) * 100) / 100,
   }));
-  const totalProducts = categories.reduce((sum: number, c: any) => sum + Number(c.productCount), 0);
+  const totalProducts = uniqueProducts.length; // Conta produtos únicos, não por estado
   const allVariations = productVariations.map((p: any) => Number(p.variation30d || 0));
   const avgVariation =
     allVariations.length > 0 ? allVariations.reduce((a: number, b: number) => a + b, 0) / allVariations.length : 0;
