@@ -38,14 +38,14 @@
 
 ## Ajustes de Consistência e Análise Profissional
 
-- [ ] Ajuste 1: Exibir fonte exata por estado (CEASA RS / SC / Média CEASA RS+SC)
-- [ ] Ajuste 2: Corrigir contagem de produtos únicos (distinct por nome)
-- [ ] Ajuste 3: Previsões com análise profissional via LLM + dados reais
-- [ ] Ajuste 4: Filtros no Ranking de Risco (nível, estado, produto)
-- [ ] Ajuste 5: Remover "Acumulado 12m" da SELIC
-- [ ] Ajuste 6: Validar consistência de dados entre telas
-- [ ] Commit e push no GitHub
-- [ ] Novo deploy no Manus
+- [x] Ajuste 1: Exibir fonte exata por estado (CEASA RS / SC / Média CEASA RS+SC)
+- [x] Ajuste 2: Corrigir contagem de produtos únicos (distinct por nome)
+- [x] Ajuste 3: Previsões com análise profissional via LLM + dados reais
+- [x] Ajuste 4: Filtros no Ranking de Risco (nível, estado, produto)
+- [x] Ajuste 5: Remover "Acumulado 12m" da SELIC
+- [x] Ajuste 6: Validar consistência de dados entre telas
+- [x] Commit e push no GitHub
+- [x] Novo deploy no Manus
 
 ## Correção de Erros HMR/Vite
 
@@ -55,8 +55,8 @@
 
 ## Correção de Dados e Lógica de Exibição
 
-- [ ] Diagnosticar dados do banco — verificar se RS/SC/PR têm valores distintos
-- [ ] Reescrever seed com preços reais distintos por estado (RS/SC/PR)
-- [ ] Corrigir Produtos Monitorados: variação entre estados, sem duplicação
-- [ ] Corrigir Ranking de Risco: 1 entrada por produto, score por variação entre estados
-- [ ] Commit GitHub e novo deploy
+- [x] Diagnosticar dados do banco — verificar se RS/SC/PR têm valores distintos
+- [x] Reescrever seed com preços reais distintos por estado (RS/SC/PR)
+- [x] Corrigir Produtos Monitorados: variação entre estados, sem duplicação
+- [x] Corrigir Ranking de Risco: 1 entrada por produto, score por variação entre estados
+- [x] Commit GitHub e novo deploy
